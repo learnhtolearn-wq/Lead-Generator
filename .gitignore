@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# environment variables
+.env
+.env.local
+.env*.local
+equipment/.env
+frontend/.env.local
+
+# Next.js
+frontend/.next/
+frontend/out/
+
+# Trigger.dev build artifacts
+equipment/.trigger/
+
+# TypeScript
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# misc
+*.log
