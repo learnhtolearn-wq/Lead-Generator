@@ -1,17 +1,18 @@
-import { runs } from "@trigger.dev/sdk/v3";
-
 export async function pollRun(
   runId: string,
   onStatus: (status: string) => void,
   intervalMs = 3000
 ): Promise<{ output: { leads: unknown[] }; status: string }> {
-  while (true) {
-    const run = await runs.retrieve(runId);
-    onStatus(run.status);
+  const terminalStatuses = ["COMPLETED", "FAILED", "CANCELED", "CRASHED", "TIMED_OUT"];
 
-    const terminalStatuses = ["COMPLETED", "FAILED", "CANCELED", "CRASHED", "TIMED_OUT"];
-    if (terminalStatuses.includes(run.status)) {
-      return run as { output: { leads: unknown[] }; status: string };
+  while (true) {
+    const res = await fetch(`/api/status/${runId}`);
+    const data = (await res.json()) as { status: string; output: { leads: unknown[] } | null };
+
+    onStatus(data.status);
+
+    if (terminalStatuses.includes(data.status)) {
+      return { status: data.status, output: data.output ?? { leads: [] } };
     }
 
     await new Promise((resolve) => setTimeout(resolve, intervalMs));

@@ -1,6 +1,4 @@
 -- Migration: 001_create_leads_table
--- Run this in: Supabase Dashboard → SQL Editor → New Query
-
 create table if not exists leads (
   id           uuid        primary key default gen_random_uuid(),
   run_id       text        not null,
