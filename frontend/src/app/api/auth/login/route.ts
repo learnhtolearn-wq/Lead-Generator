@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHmac } from 'crypto';
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
@@ -14,10 +13,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Incorrect password' }, { status: 401 });
   }
 
-  const token = createHmac('sha256', appPassword).update('authenticated').digest('hex');
-
   const response = NextResponse.json({ success: true });
-  response.cookies.set('auth_token', token, {
+  response.cookies.set('auth_token', appPassword, {
     httpOnly: true,
     sameSite: 'strict',
     secure: process.env.NODE_ENV === 'production',

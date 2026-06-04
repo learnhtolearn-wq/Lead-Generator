@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHmac } from 'crypto';
 
 const PUBLIC_PREFIXES = ['/login', '/api/auth', '/_next', '/favicon.ico'];
-
-function expectedToken(password: string): string {
-  return createHmac('sha256', password).update('authenticated').digest('hex');
-}
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -21,7 +16,7 @@ export function middleware(request: NextRequest) {
 
   const token = request.cookies.get('auth_token')?.value;
 
-  if (token === expectedToken(password)) {
+  if (token === password) {
     return NextResponse.next();
   }
 
