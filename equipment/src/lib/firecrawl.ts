@@ -51,7 +51,8 @@ export async function scrapeLeadFromUrl(url: string): Promise<ScrapedLead | null
   try {
     const response = await firecrawl.scrapeUrl(url, {
       formats: ["extract"],
-      extract: { schema: leadExtractionSchema },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      extract: { schema: leadExtractionSchema as any },
     });
 
     if (!response.success || !response.extract) return null;

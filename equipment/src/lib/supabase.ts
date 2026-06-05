@@ -1,5 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
+import { WebSocket } from "ws";
 import type { Lead } from "../types.js";
+
+if (!globalThis.WebSocket) {
+  (globalThis as unknown as Record<string, unknown>).WebSocket = WebSocket;
+}
 
 if (!process.env.SUPABASE_URL) {
   throw new Error("SUPABASE_URL environment variable is required");

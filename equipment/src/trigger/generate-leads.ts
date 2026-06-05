@@ -1,6 +1,12 @@
 import { task, logger } from "@trigger.dev/sdk/v3";
 import FirecrawlApp from "@mendable/firecrawl-js";
 import { createClient } from "@supabase/supabase-js";
+import { WebSocket } from "ws";
+
+// Polyfill for Node.js < 22 — Supabase realtime-js checks globalThis.WebSocket
+if (!globalThis.WebSocket) {
+  (globalThis as unknown as Record<string, unknown>).WebSocket = WebSocket;
+}
 
 interface Payload {
   description: string;
@@ -57,6 +63,7 @@ export const generateLeadsTask = task({
           extract: {
             prompt:
               "Extract the company name, a contact person's full name, and their email address from this page. Return null for any field not found.",
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             schema: {
               type: "object",
               properties: {
@@ -64,13 +71,13 @@ export const generateLeadsTask = task({
                 contact_name: { type: "string" },
                 email: { type: "string" },
               },
-            },
+            } as any,
           },
         });
 
         if (!scrapeResult.success) continue;
 
-        const extracted = (scrapeResult as Record<string, unknown>).extract as Record<string, string> | undefined;
+        const extracted = (scrapeResult as unknown as Record<string, unknown>).extract as Record<string, string> | undefined;
 
         leads.push({
           company_name: extracted?.company_name ?? null,
