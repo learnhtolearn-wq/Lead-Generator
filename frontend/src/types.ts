@@ -1,8 +1,11 @@
 export interface Lead {
+  id?: string;
   company_name: string;
-  contact_name: string;
-  email: string;
+  contact_name: string | null;
+  email: string | null;
   website_url: string;
+  run_id?: string;
+  created_at?: string;
 }
 
 export interface GenerateFormValues {
