@@ -1,10 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
-import { WebSocket } from "ws";
+import ws from "ws";
 import type { Lead } from "../types.js";
-
-if (!globalThis.WebSocket) {
-  (globalThis as unknown as Record<string, unknown>).WebSocket = WebSocket;
-}
 
 if (!process.env.SUPABASE_URL) {
   throw new Error("SUPABASE_URL environment variable is required");
@@ -15,7 +11,8 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
 
 export const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { realtime: { transport: ws as unknown as typeof WebSocket } }
 );
 
 export interface LeadRow extends Lead {

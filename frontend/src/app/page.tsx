@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Shell } from "@/components/Shell";
 import { Dashboard } from "@/components/Dashboard";
 import { GenerateForm, type GenerateParams } from "@/components/GenerateForm";
 import { RunningView } from "@/components/RunningView";
 import { ResultsView } from "@/components/ResultsView";
+import { HistoryView } from "@/components/HistoryView";
 import { LeadSheet } from "@/components/LeadSheet";
 import { pollRun } from "@/lib/triggerClient";
-import type { Lead } from "@/types";
+import type { Lead, HistoryEntry } from "@/types";
 
-type Tab = "dashboard" | "generate" | "running" | "run";
+const HISTORY_KEY = "prospela_history";
+
+type Tab = "dashboard" | "generate" | "running" | "run" | "history";
 
 export default function HomePage() {
   const [tab, setTab] = useState<Tab>("dashboard");
@@ -20,12 +23,28 @@ export default function HomePage() {
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
   const [jobError, setJobError] = useState<string | null>(null);
   const [layout, setLayout] = useState<"table" | "cards">("table");
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY);
+      if (raw) setHistory(JSON.parse(raw) as HistoryEntry[]);
+    } catch {
+      // corrupted storage — start fresh
+    }
+  }, []);
+
+  function saveHistory(entries: HistoryEntry[]) {
+    setHistory(entries);
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(entries)); } catch { /* quota exceeded */ }
+  }
 
   async function handleGenerate(values: GenerateParams) {
     setJobError(null);
     setLeads([]);
     setParams(values);
-    setRunMeta({ niche: values.niche, geo: values.geography || "Global" });
+    const meta = { niche: values.niche, geo: values.geography || "Global" };
+    setRunMeta(meta);
     setTab("running");
 
     try {
@@ -50,8 +69,18 @@ export default function HomePage() {
       const result = await pollRun(data.runId!, () => {});
 
       if (result.status === "COMPLETED") {
-        setLeads((result.output?.leads as Lead[]) ?? []);
+        const newLeads = (result.output?.leads as Lead[]) ?? [];
+        setLeads(newLeads);
         setTab("run");
+
+        const entry: HistoryEntry = {
+          id: Date.now().toString(),
+          niche: meta.niche,
+          geo: meta.geo,
+          leads: newLeads,
+          createdAt: new Date().toISOString(),
+        };
+        saveHistory([entry, ...history].slice(0, 50));
       } else {
         setJobError(`Job ended with status: ${result.status}`);
         setTab("generate");
@@ -60,6 +89,13 @@ export default function HomePage() {
       setJobError(String(err));
       setTab("generate");
     }
+  }
+
+  function handleRestore(entry: HistoryEntry) {
+    setLeads(entry.leads);
+    setRunMeta({ niche: entry.niche, geo: entry.geo });
+    setActiveLead(null);
+    setTab("run");
   }
 
   async function handleSignOut() {
@@ -93,6 +129,14 @@ export default function HomePage() {
             layout={layout}
             onLayout={setLayout}
             onOpen={setActiveLead}
+            onNew={() => { setTab("generate"); setJobError(null); }}
+          />
+        )}
+        {tab === "history" && (
+          <HistoryView
+            history={history}
+            onRestore={handleRestore}
+            onClear={() => saveHistory([])}
             onNew={() => { setTab("generate"); setJobError(null); }}
           />
         )}

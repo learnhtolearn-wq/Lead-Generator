@@ -1,12 +1,7 @@
 import { task, logger } from "@trigger.dev/sdk/v3";
 import FirecrawlApp from "@mendable/firecrawl-js";
 import { createClient } from "@supabase/supabase-js";
-import { WebSocket } from "ws";
-
-// Polyfill for Node.js < 22 — Supabase realtime-js checks globalThis.WebSocket
-if (!globalThis.WebSocket) {
-  (globalThis as unknown as Record<string, unknown>).WebSocket = WebSocket;
-}
+import ws from "ws";
 
 interface Payload {
   description: string;
@@ -30,7 +25,8 @@ export const generateLeadsTask = task({
     const firecrawl = new FirecrawlApp({ apiKey: process.env.FIRECRAWL_API_KEY! });
     const supabase = createClient(
       process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { realtime: { transport: ws as unknown as typeof WebSocket } }
     );
 
     const searchQuery = [description, niche, geography, "company contact email"]

@@ -13,3 +13,11 @@ export interface GenerateFormValues {
   niche: string;
   geography: string;
 }
+
+export interface HistoryEntry {
+  id: string;
+  niche: string;
+  geo: string;
+  leads: Lead[];
+  createdAt: string;
+}

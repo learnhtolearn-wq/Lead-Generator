@@ -11,6 +11,56 @@ interface ResultsViewProps {
   onNew: () => void;
 }
 
+function exportCSV(leads: Lead[]) {
+  const headers = ["Company", "Contact", "Email", "Website"];
+  const rows = leads.map((l) =>
+    [l.company_name ?? "", l.contact_name ?? "", l.email ?? "", l.website_url ?? ""]
+      .map((v) => `"${v.replace(/"/g, '""')}"`)
+      .join(",")
+  );
+  const csv = "﻿" + [headers.join(","), ...rows].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "leads.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportExcel(leads: Lead[]) {
+  const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const cell = (v: string) => `<Cell><Data ss:Type="String">${esc(v)}</Data></Cell>`;
+  const headerRow = ["Company", "Contact", "Email", "Website"].map(cell).join("");
+  const dataRows = leads
+    .map((l) =>
+      [l.company_name ?? "", l.contact_name ?? "", l.email ?? "", l.website_url ?? ""]
+        .map(cell)
+        .join("")
+    )
+    .map((cells) => `<Row>${cells}</Row>`)
+    .join("");
+
+  const xml = `<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Worksheet ss:Name="Leads">
+  <Table>
+   <Row>${headerRow}</Row>
+   ${dataRows}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+
+  const blob = new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "leads.xls";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function ResultsView({ run, leads, layout, onLayout, onOpen, onNew }: ResultsViewProps) {
   const title = run ? `${run.niche} · ${leads.length} leads` : `${leads.length} leads`;
   const subtitle = run
@@ -56,7 +106,8 @@ export function ResultsView({ run, leads, layout, onLayout, onOpen, onNew }: Res
           <p className="page-sub">{subtitle}</p>
         </div>
         <div className="psp-row" style={{ gap: 10 }}>
-          <button className="btn btn-ghost"><Icon name="download" size={16} />Export CSV</button>
+          <button className="btn btn-ghost" onClick={() => exportCSV(leads)}><Icon name="download" size={16} />Export CSV</button>
+          <button className="btn btn-ghost" onClick={() => exportExcel(leads)}><Icon name="download" size={16} />Export Excel</button>
           <button className="btn btn-primary" onClick={onNew}><Icon name="plus" size={16} />New search</button>
         </div>
       </div>
@@ -96,7 +147,7 @@ function LeadsTable({ leads, onOpen }: { leads: Lead[]; onOpen: (l: Lead) => voi
           <th>Company</th>
           <th>Contact</th>
           <th>Email</th>
-          <th></th>
+          <th>Website</th>
         </tr>
       </thead>
       <tbody>
@@ -110,10 +161,7 @@ function LeadsTable({ leads, onOpen }: { leads: Lead[]; onOpen: (l: Lead) => voi
               <td>
                 <div className="cell-co">
                   <CoLogo name={company} />
-                  <div>
-                    <div className="co-name">{company}</div>
-                    {domain && <div className="co-dom mono">{domain}</div>}
-                  </div>
+                  <div className="co-name">{company}</div>
                 </div>
               </td>
               <td>
@@ -130,8 +178,18 @@ function LeadsTable({ leads, onOpen }: { leads: Lead[]; onOpen: (l: Lead) => voi
                   </a>
                 ) : <span className="faint">—</span>}
               </td>
-              <td style={{ textAlign: "right" }}>
-                <Icon name="chevron-right" size={17} className="row-chev" />
+              <td>
+                {domain ? (
+                  <a
+                    className="td-link"
+                    href={l.website_url!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Icon name="globe" size={14} />{domain}
+                  </a>
+                ) : <span className="faint">—</span>}
               </td>
             </tr>
           );

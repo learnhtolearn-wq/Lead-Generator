@@ -1,22 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const PUBLIC_PREFIXES = ['/login', '/api/auth', '/_next', '/favicon.ico'];
+const PUBLIC_PREFIXES = ['/login', '/auth/callback', '/api/auth', '/_next', '/favicon.ico'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (PUBLIC_PREFIXES.some(p => pathname.startsWith(p))) {
-    return NextResponse.next();
-  }
-
-  const password = process.env.APP_PASSWORD;
-  if (!password) {
+  if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
   const token = request.cookies.get('auth_token')?.value;
-
-  if (token === password) {
+  if (token) {
     return NextResponse.next();
   }
 
