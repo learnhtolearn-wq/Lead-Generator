@@ -53,6 +53,21 @@ function LoginForm() {
     setLoading(false);
   }
 
+  async function handleForgotPassword() {
+    if (!email) { setError("Enter your email address first."); return; }
+    setLoading(true);
+    setError("");
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    });
+    setInfo("If that email exists, a reset link is on its way.");
+    setLoading(false);
+  }
+
   async function handleGoogleSignIn() {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -168,7 +183,18 @@ function LoginForm() {
             </div>
 
             <div className="field">
-              <label className="label">Password</label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <label className="label" style={{ margin: 0 }}>Password</label>
+                {!isRegister && (
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: "calc(var(--fs-base) - 1px)", color: "var(--accent-ink)", fontWeight: 560, fontFamily: "inherit" }}
+                  >
+                    Forgot?
+                  </button>
+                )}
+              </div>
               <div className="input-wrap">
                 <span className="lead-ic" style={{ pointerEvents: "none" }}>
                   <Icon name="lock" size={16} />

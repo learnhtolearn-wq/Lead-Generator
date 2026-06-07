@@ -1,7 +1,7 @@
 "use client";
 import { Icon } from "./Icons";
 
-type Tab = "dashboard" | "generate" | "run" | "history";
+type Tab = "dashboard" | "generate" | "run" | "history" | "settings";
 
 const NAV: { key: Tab; label: string; icon: string }[] = [
   { key: "dashboard", label: "Dashboard", icon: "dashboard" },
@@ -13,12 +13,14 @@ const NAV: { key: Tab; label: string; icon: string }[] = [
 interface ShellProps {
   tab: Tab;
   leadCount?: number;
+  searchQuery: string;
+  onSearch: (q: string) => void;
   onNav: (t: Tab) => void;
   onSignOut: () => void;
   children: React.ReactNode;
 }
 
-export function Shell({ tab, leadCount, onNav, onSignOut, children }: ShellProps) {
+export function Shell({ tab, leadCount, searchQuery, onSearch, onNav, onSignOut, children }: ShellProps) {
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -48,7 +50,10 @@ export function Shell({ tab, leadCount, onNav, onSignOut, children }: ShellProps
         ))}
 
         <div className="side-sect">Account</div>
-        <div className="side-item">
+        <div
+          className={"side-item" + (tab === "settings" ? " on" : "")}
+          onClick={() => onNav("settings")}
+        >
           <Icon name="settings" size={18} className="ic" /><span>Settings</span>
         </div>
 
@@ -65,7 +70,12 @@ export function Shell({ tab, leadCount, onNav, onSignOut, children }: ShellProps
       </aside>
 
       <main style={{ minWidth: 0 }}>
-        <Topbar crumb={CRUMBS[tab] ?? "Dashboard"} onNew={() => onNav("generate")} />
+        <Topbar
+          crumb={CRUMBS[tab] ?? "Dashboard"}
+          searchQuery={searchQuery}
+          onSearch={onSearch}
+          onNew={() => onNav("generate")}
+        />
         <div className="content">{children}</div>
       </main>
     </div>
@@ -78,9 +88,15 @@ const CRUMBS: Record<string, string> = {
   running: "New search",
   run: "Leads",
   history: "History",
+  settings: "Settings",
 };
 
-function Topbar({ crumb, onNew }: { crumb: string; onNew: () => void }) {
+function Topbar({ crumb, searchQuery, onSearch, onNew }: {
+  crumb: string;
+  searchQuery: string;
+  onSearch: (q: string) => void;
+  onNew: () => void;
+}) {
   return (
     <div className="topbar">
       <div className="crumbs">
@@ -91,7 +107,12 @@ function Topbar({ crumb, onNew }: { crumb: string; onNew: () => void }) {
       <div className="topbar-actions">
         <div className="input-wrap" style={{ width: 240 }}>
           <span className="lead-ic"><Icon name="search" size={16} /></span>
-          <input className="input" placeholder="Search leads, companies…" />
+          <input
+            className="input"
+            placeholder="Search leads, companies…"
+            value={searchQuery}
+            onChange={(e) => onSearch(e.target.value)}
+          />
         </div>
         <button className="icon-btn" aria-label="Notifications">
           <Icon name="bell" size={17} />

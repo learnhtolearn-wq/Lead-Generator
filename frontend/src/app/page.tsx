@@ -7,13 +7,14 @@ import { GenerateForm, type GenerateParams } from "@/components/GenerateForm";
 import { RunningView } from "@/components/RunningView";
 import { ResultsView } from "@/components/ResultsView";
 import { HistoryView } from "@/components/HistoryView";
+import { SettingsView } from "@/components/SettingsView";
 import { LeadSheet } from "@/components/LeadSheet";
 import { pollRun } from "@/lib/triggerClient";
 import type { Lead, HistoryEntry } from "@/types";
 
 const HISTORY_KEY = "prospela_history";
 
-type Tab = "dashboard" | "generate" | "running" | "run" | "history";
+type Tab = "dashboard" | "generate" | "running" | "run" | "history" | "settings";
 
 export default function HomePage() {
   const [tab, setTab] = useState<Tab>("dashboard");
@@ -24,6 +25,7 @@ export default function HomePage() {
   const [jobError, setJobError] = useState<string | null>(null);
   const [layout, setLayout] = useState<"table" | "cards">("table");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     try {
@@ -105,16 +107,28 @@ export default function HomePage() {
 
   const shellTab = tab === "running" ? "generate" : tab;
 
+  const q = searchQuery.trim().toLowerCase();
+  const displayedLeads = q
+    ? leads.filter((l) =>
+        (l.company_name ?? "").toLowerCase().includes(q) ||
+        (l.contact_name ?? "").toLowerCase().includes(q) ||
+        (l.email ?? "").toLowerCase().includes(q) ||
+        (l.website_url ?? "").toLowerCase().includes(q)
+      )
+    : leads;
+
   return (
     <div className="app" data-theme="crisp">
       <Shell
-        tab={shellTab as "dashboard" | "generate" | "run" | "history"}
+        tab={shellTab as "dashboard" | "generate" | "run" | "history" | "settings"}
         leadCount={leads.length}
-        onNav={(t) => { setTab(t as Tab); setActiveLead(null); }}
+        searchQuery={searchQuery}
+        onSearch={setSearchQuery}
+        onNav={(t) => { setTab(t as Tab); setActiveLead(null); setSearchQuery(""); }}
         onSignOut={handleSignOut}
       >
         {tab === "dashboard" && (
-          <Dashboard onNav={(t) => setTab(t as Tab)} />
+          <Dashboard onNav={(t) => setTab(t as Tab)} history={history} />
         )}
         {tab === "generate" && (
           <GenerateForm onRun={handleGenerate} error={jobError} />
@@ -125,7 +139,7 @@ export default function HomePage() {
         {tab === "run" && (
           <ResultsView
             run={runMeta}
-            leads={leads}
+            leads={displayedLeads}
             layout={layout}
             onLayout={setLayout}
             onOpen={setActiveLead}
@@ -139,6 +153,9 @@ export default function HomePage() {
             onClear={() => saveHistory([])}
             onNew={() => { setTab("generate"); setJobError(null); }}
           />
+        )}
+        {tab === "settings" && (
+          <SettingsView onSignOut={handleSignOut} />
         )}
       </Shell>
 

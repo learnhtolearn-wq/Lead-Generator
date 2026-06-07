@@ -110,16 +110,16 @@ body {
 
 /* Auth page standalone tokens (no .app wrapper) */
 .auth-page {
-  --accent:#C85B3A;
-  --bg:#f9f6f2;--surface:#fff;--surface-2:#f4f0eb;--input-bg:#fff;
-  --text:#1c1815;--text-muted:#6b5f57;--text-faint:#a8998f;
-  --border:#e8e0d8;--border-strong:#d8ccc2;
-  --accent-on:#fff;--accent-hover:#b34d31;
-  --accent-soft:rgba(200,91,58,.10);
-  --accent-ink:#a84530;
-  --side-bg:#C85B3A;--side-text:#fff;--side-muted:rgba(255,255,255,.62);
-  --btn-shadow:0 2px 6px rgba(200,91,58,.32);
-  --card-shadow:0 1px 3px rgba(28,24,21,.06);
+  --accent:#5b6cff;
+  --bg:#f8f9fc;--surface:#fff;--surface-2:#f1f3f8;--input-bg:#fff;
+  --text:#15181f;--text-muted:#6b7280;--text-faint:#9ca3af;
+  --border:#e5e7eb;--border-strong:#d1d5db;
+  --accent-on:#fff;--accent-hover:color-mix(in srgb,#5b6cff 86%,#000);
+  --accent-soft:rgba(91,108,255,.10);
+  --accent-ink:color-mix(in srgb,#5b6cff 72%,#1a1d26);
+  --side-bg:#5b6cff;--side-text:#fff;--side-muted:rgba(255,255,255,.62);
+  --btn-shadow:0 2px 8px rgba(91,108,255,.38);
+  --card-shadow:0 1px 3px rgba(16,22,40,.07);
   --r-sm:7px;--r-md:10px;--r-lg:15px;
   --ctrl-h:42px;--fs-base:14.5px;--pad-lg:22px;
   --font-head:"Plus Jakarta Sans",system-ui,sans-serif;
@@ -350,13 +350,13 @@ a{color:inherit;}
 /* ---- auth / login ---- */
 .auth{min-height:100vh;display:grid;grid-template-columns:1.05fr 1fr;}
 .auth-aside{
-  background:linear-gradient(145deg,#D9664C 0%,#C25238 55%,#A94028 100%);
+  background:linear-gradient(145deg,#1c1f4e 0%,#13163d 55%,#0c0e28 100%);
   color:#fff;padding:52px 56px;display:flex;flex-direction:column;
   position:relative;overflow:hidden;
 }
 .auth-aside::before{
   content:"";position:absolute;width:500px;height:500px;right:-180px;top:-180px;border-radius:50%;
-  background:radial-gradient(circle,rgba(255,255,255,.14),transparent 70%);pointer-events:none;
+  background:radial-gradient(circle,rgba(91,108,255,.28),transparent 70%);pointer-events:none;
 }
 .auth-aside::after{
   content:"";position:absolute;width:360px;height:360px;left:-120px;bottom:-140px;border-radius:50%;
