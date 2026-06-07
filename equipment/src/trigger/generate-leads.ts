@@ -22,6 +22,8 @@ export const generateLeadsTask = task({
   run: async (payload: Payload, { ctx }) => {
     const { description, niche, geography } = payload;
 
+    logger.log("Job started", { runId: ctx.run.id, description, niche, geography: geography ?? "(none)" });
+
     const firecrawl = new FirecrawlApp({ apiKey: process.env.FIRECRAWL_API_KEY! });
     const supabase = createClient(
       process.env.SUPABASE_URL!,
@@ -33,25 +35,47 @@ export const generateLeadsTask = task({
       .filter(Boolean)
       .join(" ");
 
-    logger.log("Searching for leads", { searchQuery });
+    logger.log("Searching Firecrawl", { searchQuery });
 
-    const searchResult = await firecrawl.search(searchQuery, { limit: 15 });
-
-    if (!searchResult.success || !searchResult.data?.length) {
-      logger.warn("No search results found");
+    let searchResult: Awaited<ReturnType<typeof firecrawl.search>>;
+    try {
+      searchResult = await firecrawl.search(searchQuery, { limit: 15 });
+    } catch (err) {
+      logger.error("Firecrawl search threw an exception", {
+        endpoint: "firecrawl.search",
+        payload: { query: searchQuery, limit: 15 },
+        timestamp: new Date().toISOString(),
+        error: String(err),
+      });
       return { leads: [] };
     }
 
-    logger.log("Found pages", { count: searchResult.data.length });
+    if (!searchResult.success || !searchResult.data?.length) {
+      logger.warn("No search results returned from Firecrawl");
+      return { leads: [] };
+    }
+
+    logger.log("Pages found to scrape", { count: searchResult.data.length });
 
     const leads: Lead[] = [];
     const seen = new Set<string>();
 
-    for (const page of searchResult.data) {
-      if (leads.length >= 10) break;
-      if (!page.url) continue;
-      if (seen.has(page.url)) continue;
+    for (const [i, page] of searchResult.data.entries()) {
+      if (leads.length >= 10) {
+        logger.log("Lead cap reached, stopping early", { cap: 10, pagesRemaining: searchResult.data.length - i });
+        break;
+      }
+      if (!page.url) {
+        logger.log("Skipping page with no URL", { index: i + 1 });
+        continue;
+      }
+      if (seen.has(page.url)) {
+        logger.log("Skipping duplicate URL", { url: page.url });
+        continue;
+      }
       seen.add(page.url);
+
+      logger.log("Scraping page", { url: page.url, index: i + 1, total: searchResult.data.length });
 
       try {
         const scrapeResult = await firecrawl.scrapeUrl(page.url, {
@@ -71,7 +95,10 @@ export const generateLeadsTask = task({
           },
         });
 
-        if (!scrapeResult.success) continue;
+        if (!scrapeResult.success) {
+          logger.warn("Scrape returned unsuccessful result", { url: page.url });
+          continue;
+        }
 
         const extracted = (scrapeResult as unknown as Record<string, unknown>).extract as Record<string, string> | undefined;
 
@@ -82,29 +109,62 @@ export const generateLeadsTask = task({
           website_url: page.url,
         });
 
-        logger.log("Scraped lead", { url: page.url, company: extracted?.company_name });
+        logger.log("Lead extracted", {
+          url: page.url,
+          company: extracted?.company_name ?? "(none)",
+          contact: extracted?.contact_name ?? "(none)",
+          email: extracted?.email ?? "(none)",
+        });
       } catch (err) {
-        logger.warn("Failed to scrape page", { url: page.url, error: String(err) });
+        logger.warn("Exception while scraping page", {
+          endpoint: "firecrawl.scrapeUrl",
+          payload: { url: page.url, formats: ["extract"] },
+          timestamp: new Date().toISOString(),
+          error: String(err),
+        });
       }
     }
 
-    logger.log("Total leads scraped", { count: leads.length });
+    logger.log("Scraping complete", { leadsFound: leads.length });
 
     if (leads.length === 0) {
+      logger.warn("No leads extracted — returning empty result");
       return { leads: [] };
     }
 
-    const { data: inserted, error } = await supabase
-      .from("leads")
-      .insert(leads.map((lead) => ({ ...lead, run_id: ctx.run.id })))
-      .select();
+    logger.log("Inserting leads into Supabase", { count: leads.length, runId: ctx.run.id });
 
-    if (error) {
-      logger.error("Supabase insert failed", { error: error.message });
-      throw new Error(`Supabase insert failed: ${error.message}`);
+    let inserted: Lead[] | null = null;
+    try {
+      const { data, error } = await supabase
+        .from("leads")
+        .insert(leads.map((lead) => ({ ...lead, run_id: ctx.run.id })))
+        .select();
+
+      if (error) {
+        logger.error("Supabase insert returned an error", {
+          endpoint: "supabase.from(leads).insert",
+          payload: { count: leads.length, runId: ctx.run.id },
+          timestamp: new Date().toISOString(),
+          error: error.message,
+        });
+        throw new Error(`Supabase insert failed: ${error.message}`);
+      }
+      inserted = data;
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith("Supabase insert failed")) throw err;
+      logger.error("Supabase insert threw an exception", {
+        endpoint: "supabase.from(leads).insert",
+        payload: { count: leads.length, runId: ctx.run.id },
+        timestamp: new Date().toISOString(),
+        error: String(err),
+      });
+      throw err;
     }
 
-    logger.log("Inserted leads into Supabase", { count: inserted?.length ?? 0 });
+    logger.log("Leads saved successfully", { count: inserted?.length ?? 0, runId: ctx.run.id });
+
+    logger.log("Job complete", { runId: ctx.run.id, totalLeadsReturned: inserted?.length ?? 0 });
 
     return { leads: inserted ?? [] };
   },

@@ -37,7 +37,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ runId: handle.id }, { status: 200 });
   } catch (err) {
-    console.error("Failed to trigger generate-leads job:", err);
+    console.error("[generate] tasks.trigger failed", {
+      endpoint: "trigger.dev/tasks.trigger",
+      payload: { task: "generate-leads", description, niche, geography },
+      timestamp: new Date().toISOString(),
+      error: String(err),
+    });
     return NextResponse.json(
       { error: "Failed to start lead generation job" },
       { status: 500 }

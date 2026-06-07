@@ -17,22 +17,34 @@ export async function POST(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  let accessToken: string | null = null;
+  try {
+    const { data, error } = await supabase.auth.signUp({ email, password });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  }
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
 
-  // Supabase requires email confirmation by default — user must disable it in Dashboard
-  if (!data.session) {
-    return NextResponse.json(
-      { needsConfirmation: true, error: 'Check your email to confirm your account, then sign in.' },
-      { status: 200 }
-    );
+    // Supabase requires email confirmation by default — user must disable it in Dashboard
+    if (!data.session) {
+      return NextResponse.json(
+        { needsConfirmation: true, error: 'Check your email to confirm your account, then sign in.' },
+        { status: 200 }
+      );
+    }
+    accessToken = data.session.access_token;
+  } catch (err) {
+    console.error('[auth/register] supabase.auth.signUp threw', {
+      endpoint: 'supabase.auth.signUp',
+      payload: { email },
+      timestamp: new Date().toISOString(),
+      error: String(err),
+    });
+    return NextResponse.json({ error: 'Authentication service unavailable' }, { status: 503 });
   }
 
   const response = NextResponse.json({ success: true });
-  response.cookies.set('auth_token', data.session.access_token, {
+  response.cookies.set('auth_token', accessToken!, {
     httpOnly: true,
     sameSite: 'strict',
     secure: process.env.NODE_ENV === 'production',
