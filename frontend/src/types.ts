@@ -2,8 +2,11 @@ export interface Lead {
   id?: string;
   company_name: string;
   contact_name: string | null;
+  contact_title?: string | null;
   email: string | null;
   website_url: string;
+  location?: string | null;
+  score?: number | null;
   run_id?: string;
   created_at?: string;
 }

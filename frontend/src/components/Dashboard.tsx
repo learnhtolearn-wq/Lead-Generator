@@ -5,6 +5,7 @@ import type { HistoryEntry } from "@/types";
 
 interface DashboardProps {
   onNav: (tab: string) => void;
+  onRestore: (entry: HistoryEntry) => void;
   history: HistoryEntry[];
 }
 
@@ -42,7 +43,7 @@ function relativeTime(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-export function Dashboard({ onNav, history }: DashboardProps) {
+export function Dashboard({ onNav, onRestore, history }: DashboardProps) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
@@ -176,7 +177,7 @@ export function Dashboard({ onNav, history }: DashboardProps) {
               </thead>
               <tbody>
                 {recent.map((e) => (
-                  <tr key={e.id} onClick={() => onNav("history")} style={{ cursor: "pointer" }}>
+                  <tr key={e.id} onClick={() => onRestore(e)} style={{ cursor: "pointer" }}>
                     <td>
                       <div className="co-name">{e.niche}</div>
                       <div className="co-dom mono">{e.id.slice(0, 12)}</div>

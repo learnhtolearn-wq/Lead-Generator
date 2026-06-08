@@ -20,7 +20,7 @@ export default function HomePage() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [params, setParams] = useState<GenerateParams | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [runMeta, setRunMeta] = useState<{ niche: string; geo: string } | null>(null);
+  const [runMeta, setRunMeta] = useState<{ niche: string; geo: string; runId?: string } | null>(null);
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
   const [jobError, setJobError] = useState<string | null>(null);
   const [layout, setLayout] = useState<"table" | "cards">("table");
@@ -45,7 +45,7 @@ export default function HomePage() {
     setJobError(null);
     setLeads([]);
     setParams(values);
-    const meta = { niche: values.niche, geo: values.geography || "Global" };
+    const meta = { niche: values.niche, geo: values.geography || "Global", runId: undefined as string | undefined };
     setRunMeta(meta);
     setTab("running");
 
@@ -68,6 +68,7 @@ export default function HomePage() {
         return;
       }
 
+      meta.runId = data.runId;
       const result = await pollRun(data.runId!, () => {});
 
       if (result.status === "COMPLETED") {
@@ -95,8 +96,9 @@ export default function HomePage() {
 
   function handleRestore(entry: HistoryEntry) {
     setLeads(entry.leads);
-    setRunMeta({ niche: entry.niche, geo: entry.geo });
+    setRunMeta({ niche: entry.niche, geo: entry.geo, runId: entry.id });
     setActiveLead(null);
+    setSearchQuery("");
     setTab("run");
   }
 
@@ -128,7 +130,7 @@ export default function HomePage() {
         onSignOut={handleSignOut}
       >
         {tab === "dashboard" && (
-          <Dashboard onNav={(t) => setTab(t as Tab)} history={history} />
+          <Dashboard onNav={(t) => setTab(t as Tab)} onRestore={handleRestore} history={history} />
         )}
         {tab === "generate" && (
           <GenerateForm onRun={handleGenerate} error={jobError} />

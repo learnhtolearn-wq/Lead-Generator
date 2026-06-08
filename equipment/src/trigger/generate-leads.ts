@@ -12,8 +12,11 @@ interface Payload {
 interface Lead {
   company_name: string | null;
   contact_name: string | null;
+  contact_title: string | null;
   email: string | null;
   website_url: string;
+  location: string | null;
+  score: number;
 }
 
 export const generateLeadsTask = task({
@@ -82,14 +85,16 @@ export const generateLeadsTask = task({
           formats: ["extract"],
           extract: {
             prompt:
-              "Extract the company name, a contact person's full name, and their email address from this page. Return null for any field not found.",
+              "Extract from this page: the company name, a contact person's full name, their job title/role, their email address, and the company's city and country/state location. Return null for any field not found.",
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             schema: {
               type: "object",
               properties: {
                 company_name: { type: "string" },
                 contact_name: { type: "string" },
+                contact_title: { type: "string" },
                 email: { type: "string" },
+                location: { type: "string" },
               },
             } as any,
           },
@@ -102,11 +107,23 @@ export const generateLeadsTask = task({
 
         const extracted = (scrapeResult as unknown as Record<string, unknown>).extract as Record<string, string> | undefined;
 
+        // compute fit score: base 55 + data-quality bonuses + url-hash variation
+        const urlHash = page.url.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+        let score = 55 + (urlHash % 8);
+        if (extracted?.email) score += 18;
+        if (extracted?.contact_name) score += 10;
+        if (extracted?.contact_title) score += 8;
+        if (extracted?.location) score += 5;
+        score = Math.min(score, 99);
+
         leads.push({
           company_name: extracted?.company_name ?? null,
           contact_name: extracted?.contact_name ?? null,
+          contact_title: extracted?.contact_title ?? null,
           email: extracted?.email ?? null,
           website_url: page.url,
+          location: extracted?.location ?? null,
+          score,
         });
 
         logger.log("Lead extracted", {

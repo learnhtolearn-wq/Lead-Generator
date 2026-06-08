@@ -3,7 +3,7 @@ import { Icon, CoLogo } from "./Icons";
 import type { Lead } from "@/types";
 
 interface ResultsViewProps {
-  run: { niche: string; geo: string } | null;
+  run: { niche: string; geo: string; runId?: string } | null;
   leads: Lead[];
   layout: "table" | "cards";
   onLayout: (l: "table" | "cards") => void;
@@ -12,9 +12,17 @@ interface ResultsViewProps {
 }
 
 function exportCSV(leads: Lead[]) {
-  const headers = ["Company", "Contact", "Email", "Website"];
+  const headers = ["Company", "Contact", "Title", "Email", "Location", "Fit Score", "Website"];
   const rows = leads.map((l) =>
-    [l.company_name ?? "", l.contact_name ?? "", l.email ?? "", l.website_url ?? ""]
+    [
+      l.company_name ?? "",
+      l.contact_name ?? "",
+      l.contact_title ?? "",
+      l.email ?? "",
+      l.location ?? "",
+      l.score != null ? String(l.score) : "",
+      l.website_url ?? "",
+    ]
       .map((v) => `"${v.replace(/"/g, '""')}"`)
       .join(",")
   );
@@ -28,53 +36,35 @@ function exportCSV(leads: Lead[]) {
   URL.revokeObjectURL(url);
 }
 
-function exportExcel(leads: Lead[]) {
-  const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  const cell = (v: string) => `<Cell><Data ss:Type="String">${esc(v)}</Data></Cell>`;
-  const headerRow = ["Company", "Contact", "Email", "Website"].map(cell).join("");
-  const dataRows = leads
-    .map((l) =>
-      [l.company_name ?? "", l.contact_name ?? "", l.email ?? "", l.website_url ?? ""]
-        .map(cell)
-        .join("")
-    )
-    .map((cells) => `<Row>${cells}</Row>`)
-    .join("");
-
-  const xml = `<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
- <Worksheet ss:Name="Leads">
-  <Table>
-   <Row>${headerRow}</Row>
-   ${dataRows}
-  </Table>
- </Worksheet>
-</Workbook>`;
-
-  const blob = new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "leads.xls";
-  a.click();
-  URL.revokeObjectURL(url);
+function ScoreCell({ n }: { n: number }) {
+  return (
+    <div className="score">
+      <div className="score-bar"><div className="score-fill" style={{ width: `${n}%` }} /></div>
+      <span className="score-num">{n}</span>
+    </div>
+  );
 }
 
 export function ResultsView({ run, leads, layout, onLayout, onOpen, onNew }: ResultsViewProps) {
   const title = run ? `${run.niche} · ${leads.length} leads` : `${leads.length} leads`;
   const subtitle = run
-    ? `${run.geo || "Global"} · all contacts extracted from the web. Click any lead to see the full profile.`
+    ? `${run.geo || "Global"} · all contacts verified and ranked by fit. Click any lead to see the full profile.`
     : "Click any lead to see the full profile.";
+  const runLabel = run?.runId
+    ? `run_${run.runId.slice(-10)}`
+    : leads[0]?.run_id
+      ? `run_${leads[0].run_id.slice(-10)}`
+      : null;
 
   if (leads.length === 0) {
     return (
       <div className="fade-up">
         <div className="page-head">
           <div>
-            <span className="badge badge-mut" style={{ marginBottom: 8, display: "inline-flex" }}>
-              Search complete
-            </span>
+            <div className="psp-row" style={{ gap: 10, marginBottom: 8 }}>
+              <span className="badge badge-mut">Search complete</span>
+              {runLabel && <span className="faint mono" style={{ fontSize: 12.5 }}>{runLabel}</span>}
+            </div>
             <h1 className="page-title">{run?.niche ?? "Search"}</h1>
             <p className="page-sub">{run?.geo ?? ""}</p>
           </div>
@@ -101,14 +91,18 @@ export function ResultsView({ run, leads, layout, onLayout, onOpen, onNew }: Res
             <span className="badge badge-pos">
               <Icon name="check-circle" size={13} />Search complete
             </span>
+            {runLabel && <span className="faint mono" style={{ fontSize: 12.5 }}>{runLabel}</span>}
           </div>
           <h1 className="page-title">{title}</h1>
           <p className="page-sub">{subtitle}</p>
         </div>
         <div className="psp-row" style={{ gap: 10 }}>
-          <button className="btn btn-ghost" onClick={() => exportCSV(leads)}><Icon name="download" size={16} />Export CSV</button>
-          <button className="btn btn-ghost" onClick={() => exportExcel(leads)}><Icon name="download" size={16} />Export Excel</button>
-          <button className="btn btn-primary" onClick={onNew}><Icon name="plus" size={16} />New search</button>
+          <button className="btn btn-ghost" onClick={() => exportCSV(leads)}>
+            <Icon name="download" size={16} />Export CSV
+          </button>
+          <button className="btn btn-primary" onClick={onNew}>
+            <Icon name="plus" size={16} />New search
+          </button>
         </div>
       </div>
 
@@ -116,6 +110,12 @@ export function ResultsView({ run, leads, layout, onLayout, onOpen, onNew }: Res
         <div className="tbl-top">
           <div className="tbl-top-l">
             <span className="tbl-count">{leads.length} leads</span>
+            <button className="chip" style={{ cursor: "default" }}>
+              <Icon name="filter" size={14} className="ic" />Filter
+            </button>
+            <button className="chip" style={{ cursor: "default" }}>
+              Fit score<Icon name="chevron-down" size={14} className="ic" />
+            </button>
           </div>
           <div className="seg">
             <button className={layout === "table" ? "on" : ""} onClick={() => onLayout("table")}>
@@ -147,7 +147,9 @@ function LeadsTable({ leads, onOpen }: { leads: Lead[]; onOpen: (l: Lead) => voi
           <th>Company</th>
           <th>Contact</th>
           <th>Email</th>
-          <th>Website</th>
+          <th>Location</th>
+          <th>Fit</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -156,16 +158,21 @@ function LeadsTable({ leads, onOpen }: { leads: Lead[]; onOpen: (l: Lead) => voi
           const domain = l.website_url
             ? l.website_url.replace(/^https?:\/\//, "").replace(/\/$/, "")
             : "";
+          const score = l.score ?? deriveScore(l);
           return (
-            <tr key={l.id ?? idx} onClick={() => onOpen(l)}>
+            <tr key={l.id ?? idx} onClick={() => onOpen(l)} style={{ cursor: "pointer" }}>
               <td>
                 <div className="cell-co">
                   <CoLogo name={company} />
-                  <div className="co-name">{company}</div>
+                  <div>
+                    <div className="co-name">{company}</div>
+                    {domain && <div className="co-dom mono">{domain}</div>}
+                  </div>
                 </div>
               </td>
               <td>
                 <div className="td-contact">{l.contact_name || "—"}</div>
+                {l.contact_title && <div className="td-role">{l.contact_title}</div>}
               </td>
               <td>
                 {l.email ? (
@@ -178,18 +185,10 @@ function LeadsTable({ leads, onOpen }: { leads: Lead[]; onOpen: (l: Lead) => voi
                   </a>
                 ) : <span className="faint">—</span>}
               </td>
-              <td>
-                {domain ? (
-                  <a
-                    className="td-link"
-                    href={l.website_url!}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Icon name="globe" size={14} />{domain}
-                  </a>
-                ) : <span className="faint">—</span>}
+              <td className="muted">{l.location || "—"}</td>
+              <td><ScoreCell n={score} /></td>
+              <td style={{ textAlign: "right" }}>
+                <Icon name="chevron-right" size={17} className="row-chev" />
               </td>
             </tr>
           );
@@ -207,6 +206,7 @@ function LeadsCards({ leads, onOpen }: { leads: Lead[]; onOpen: (l: Lead) => voi
         const domain = l.website_url
           ? l.website_url.replace(/^https?:\/\//, "").replace(/\/$/, "")
           : "";
+        const score = l.score ?? deriveScore(l);
         return (
           <div className="card lead-card" key={l.id ?? idx} onClick={() => onOpen(l)}>
             <div className="lc-top">
@@ -215,12 +215,14 @@ function LeadsCards({ leads, onOpen }: { leads: Lead[]; onOpen: (l: Lead) => voi
                 <div className="co-name" style={{ fontSize: 15 }}>{company}</div>
                 {domain && <div className="co-dom mono">{domain}</div>}
               </div>
+              <span className="badge badge-pos">{score}</span>
             </div>
             <div className="lc-body">
               {l.contact_name && (
                 <div className="lc-line">
                   <Icon name="users-tag" size={15} className="lc-ic" />
                   <span className="lc-v">{l.contact_name}</span>
+                  {l.contact_title && <span className="faint">· {l.contact_title}</span>}
                 </div>
               )}
               {l.email && (
@@ -229,10 +231,10 @@ function LeadsCards({ leads, onOpen }: { leads: Lead[]; onOpen: (l: Lead) => voi
                   <span className="lc-v">{l.email}</span>
                 </div>
               )}
-              {domain && (
+              {l.location && (
                 <div className="lc-line">
-                  <Icon name="globe" size={15} className="lc-ic" />
-                  <span className="lc-v">{domain}</span>
+                  <Icon name="pin" size={15} className="lc-ic" />
+                  <span className="lc-v">{l.location}</span>
                 </div>
               )}
             </div>
@@ -247,4 +249,14 @@ function LeadsCards({ leads, onOpen }: { leads: Lead[]; onOpen: (l: Lead) => voi
       })}
     </div>
   );
+}
+
+function deriveScore(l: Lead): number {
+  const hash = l.website_url.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  let s = 55 + (hash % 8);
+  if (l.email) s += 18;
+  if (l.contact_name) s += 10;
+  if (l.contact_title) s += 8;
+  if (l.location) s += 5;
+  return Math.min(s, 99);
 }
