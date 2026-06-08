@@ -11,6 +11,26 @@ interface ResultsViewProps {
   onNew: () => void;
 }
 
+async function exportExcel(
+  leads: Lead[],
+  run: { niche: string; geo: string; runId?: string } | null
+) {
+  const runLabel = run?.runId ? `run_${run.runId.slice(-10)}` : undefined;
+  const res = await fetch("/api/export/excel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ leads, niche: run?.niche, geo: run?.geo, runLabel }),
+  });
+  if (!res.ok) return;
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `prospela-${(run?.niche ?? "leads").toLowerCase().replace(/\s+/g, "-")}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function exportCSV(leads: Lead[]) {
   const headers = ["Company", "Contact", "Title", "Email", "Location", "Fit Score", "Website"];
   const rows = leads.map((l) =>
@@ -99,6 +119,9 @@ export function ResultsView({ run, leads, layout, onLayout, onOpen, onNew }: Res
         <div className="psp-row" style={{ gap: 10 }}>
           <button className="btn btn-ghost" onClick={() => exportCSV(leads)}>
             <Icon name="download" size={16} />Export CSV
+          </button>
+          <button className="btn btn-ghost" onClick={() => exportExcel(leads, run)}>
+            <Icon name="download" size={16} />Export Excel
           </button>
           <button className="btn btn-primary" onClick={onNew}>
             <Icon name="plus" size={16} />New search
