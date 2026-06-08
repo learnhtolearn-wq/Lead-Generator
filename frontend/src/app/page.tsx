@@ -28,12 +28,75 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(HISTORY_KEY);
-      if (raw) setHistory(JSON.parse(raw) as HistoryEntry[]);
-    } catch {
-      // corrupted storage — start fresh
+    async function loadHistory() {
+      // 1. Load from localStorage
+      let local: HistoryEntry[] = [];
+      try {
+        const raw = localStorage.getItem(HISTORY_KEY);
+        if (raw) local = JSON.parse(raw) as HistoryEntry[];
+      } catch { /* corrupted — ignore */ }
+
+      // 2. Fetch from Supabase via API
+      let remote: HistoryEntry[] = [];
+      try {
+        const res = await fetch("/api/leads");
+        if (res.ok) {
+          const json = await res.json() as { entries: HistoryEntry[] };
+          remote = json.entries ?? [];
+        }
+      } catch { /* offline or error — use local only */ }
+
+      if (remote.length === 0) {
+        setHistory(local);
+        return;
+      }
+
+      // 3. Collect run_ids already covered by localStorage entries
+      const localRunIds = new Set<string>();
+      for (const e of local) {
+        for (const l of e.leads) {
+          if (l.run_id) localRunIds.add(l.run_id);
+        }
+        // also treat the entry id itself as a run_id key
+        localRunIds.add(e.id);
+      }
+
+      // 4. Add remote entries not already in local; preserve niche/geo from local where they match
+      const localByRunId = new Map<string, HistoryEntry>();
+      for (const e of local) {
+        for (const l of e.leads) {
+          if (l.run_id) localByRunId.set(l.run_id, e);
+        }
+      }
+
+      const merged: HistoryEntry[] = [...local];
+      for (const re of remote) {
+        if (localRunIds.has(re.id)) {
+          // Already in local — patch the niche/geo from local entry if we have it
+          const match = localByRunId.get(re.id);
+          if (match) {
+            re.niche = match.niche;
+            re.geo = match.geo;
+          }
+          continue;
+        }
+        // New run not in local: derive a label from the leads
+        re.niche = re.leads[0]?.company_name
+          ? `${re.leads.length} leads`
+          : `Search (${re.leads.length})`;
+        re.geo = re.leads.find(l => l.location)?.location ?? "—";
+        merged.push(re);
+        localRunIds.add(re.id);
+      }
+
+      merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      // 5. Persist merged list so subsequent loads are instant
+      setHistory(merged);
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(merged)); } catch { /* quota */ }
     }
+
+    loadHistory();
   }, []);
 
   function saveHistory(entries: HistoryEntry[]) {
