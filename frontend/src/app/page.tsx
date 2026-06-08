@@ -118,7 +118,7 @@ export default function HomePage() {
     : leads;
 
   return (
-    <div className="app" data-theme="crisp">
+    <div className="app" data-theme="carbon">
       <Shell
         tab={shellTab as "dashboard" | "generate" | "run" | "history" | "settings"}
         leadCount={leads.length}

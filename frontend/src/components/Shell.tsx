@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import { Icon } from "./Icons";
 
 type Tab = "dashboard" | "generate" | "run" | "history" | "settings";
@@ -20,7 +21,29 @@ interface ShellProps {
   children: React.ReactNode;
 }
 
+function useCurrentUser() {
+  const [email, setEmail] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { email?: string } | null) => { if (d?.email) setEmail(d.email); })
+      .catch(() => {});
+  }, []);
+  return email;
+}
+
+function avatarInitials(email: string | null): string {
+  if (!email) return "…";
+  const local = email.split("@")[0];
+  const parts = local.replace(/[^a-zA-Z0-9]/g, " ").trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return (local.slice(0, 2)).toUpperCase();
+}
+
 export function Shell({ tab, leadCount, searchQuery, onSearch, onNav, onSignOut, children }: ShellProps) {
+  const userEmail = useCurrentUser();
+  const initials = avatarInitials(userEmail);
+
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -60,9 +83,11 @@ export function Shell({ tab, leadCount, searchQuery, onSearch, onNav, onSignOut,
         <div className="side-spacer" />
 
         <div className="side-user" onClick={onSignOut} title="Sign out">
-          <div className="avatar" style={{ background: "linear-gradient(135deg,#6366F1,#A855F7)" }}>AR</div>
+          <div className="avatar" style={{ background: "linear-gradient(135deg,#6366F1,#A855F7)" }}>{initials}</div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: 13.5, color: "var(--side-text)" }}>Avery Reed</div>
+            <div style={{ fontWeight: 600, fontSize: 13.5, color: "var(--side-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {userEmail ?? "…"}
+            </div>
             <div style={{ fontSize: 11.5, color: "var(--side-muted)" }}>Sign out</div>
           </div>
           <Icon name="external" size={15} style={{ color: "var(--side-muted)" }} />
